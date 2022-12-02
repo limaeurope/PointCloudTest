@@ -21,6 +21,8 @@ class Point(g.Point2D):
         EPS = Point.EPS
         return self.x - EPS < other.x < self.x + EPS and self.y - EPS < other.y < self.y + EPS
 
+    def __str__(self):
+        return f"POINT ({float(self.x)}, {float(self.y)})"
 
 class Slope(float):
     EPS = 0.1
@@ -60,11 +62,11 @@ class Slope(float):
         return self.isAngleAt(p_other, p_checkBothSides=True)
 
 
-class Line(g.Line):
+class Line(g.Segment):
     EPS = 0.1
 
-    def __new__(cls, p_p1, p_p2):
-        _r = super(g.Line, cls).__new__(cls, p_p1, p_p2)
+    def __new__(cls, *args):
+        _r = super(g.Segment, cls).__new__(cls, *args)
         return _r
 
     def __init__(self, p_p1: Point, p_p2: Point, ):
@@ -72,6 +74,12 @@ class Line(g.Line):
         self.guid = uuid.uuid4()
         self.l1 = None
         self.l2 = None
+
+    def __str__(self):
+        return f"Line {self.p1} - {self.p2}"
+
+    def __repr__(self):
+        return f"Line {self.p1} - {self.p2}"
 
     @classmethod
     def setEPS(cls, p_eps):
@@ -91,12 +99,6 @@ class Line(g.Line):
         if self.p2 == p_line.p2:
             self.l2 = p_line
             p_line.l2 = self
-
-    def __str__(self):
-        return f"Line {self.p1} - {self.p2}"
-
-    def __repr__(self):
-        return f"Line {self.p1} - {self.p2}"
 
     def _dx(self)->float:
         return self.p2.x - self.p1.x
@@ -141,16 +143,26 @@ class Line(g.Line):
 
 
 class CompositeLine(Line):
-    def __new__(cls, p_seg:Line):
-        _r = super(g.Line, cls).__new__(cls, p_seg.p1, p_seg.p2)
+    def __new__(cls, *args):
+        _r = super(Line, cls).__new__(cls, *args)
         return _r
 
-    def __init__(self, p_seg:Line, p_index = 0):
-        self.lineList = [p_seg]
-        self.p1 = p_seg.p1
-        self.p2 = p_seg.p2
+    def __init__(self, *args, p_index = 0):
+        super(g.Segment, self).__init__()
+        if len(args) == 1:
+            if isinstance(args[0], Line):
+                self.lineList = [args[0]]
+                self.p1 = args[0].p1
+                self.p2 = args[0].p2
+        if len(args) == 2:
+            self.lineList = [Line(args[0], args[1])]
+            self.p1 = args[0]
+            self.p2 = args[1]
         self.index = p_index
         self.toBeUsed = True
+
+    def __repr__(self):
+        return f"CompositeLine: {self.p1} -> {self.p2}"
 
     @property
     def p1(self):
@@ -188,6 +200,10 @@ class CompositeLine(Line):
     def isNextTo(self, p_other):
         return self.p2 == p_other.p1
 
+    def toLine(self):
+        _r = g.Line(self.p1, self.p2)
+        return _r
+
 
 class ClosedPolyLine(g.Polygon):
     def __new__(cls, p_list):
@@ -216,28 +232,43 @@ class ClosedPolyLine(g.Polygon):
         cols = "rgbcymk"
         i = 0
         for cl in self.compositeLines:
-            pL.append([cl.p1.x, cl.p2.x, ])
-            pL.append([cl.p1.y, cl.p2.y, ])
-            pL.append(cols[i%len(cols)])
-            i += 1
+            if cl.toBeUsed:
+                pL.append([cl.p1.x, cl.p2.x, ])
+                pL.append([cl.p1.y, cl.p2.y, ])
+                pL.append(cols[i%len(cols)])
+                i += 1
         return pL
 
-    # def autoPurge(self):
-    #     _compositeLinesOrdered = sorted(self.compositeLines, key=lambda i: i.length)
-    #     _compositeLinesOrdered[-1].toBeUsed = False
-    #     _compositeLinesOrdered = sorted(self.compositeLines, key=lambda i: i.index)
-    #
-    #     _prevCL = _compositeLinesOrdered[0]
-    #     for _CL in _compositeLinesOrdered[1:]:
-    #         if not _CL.toBeUsed:
-    #             continue
-    #
-    #         if not _CL.isNextTo(_prevCL):
-    #             _CL.intersect(_prevCL)
-    #             _prevCL.intersect(_CL)
-    #
-    #         _prevCL = _CL
+    def autoPurge(self):
+        _compositeLinesOrdered = sorted(self.compositeLines, key=lambda i: i.length)
+        for c in _compositeLinesOrdered[:15]:
+            c.toBeUsed = False
 
+        _compositeLinesOrdered = sorted(self.compositeLines, key=lambda i: i.index)
+
+        _prevCL = _compositeLinesOrdered[0]
+        for _CL in _compositeLinesOrdered[1:]:
+            if not _CL.toBeUsed:
+                continue
+            if not _CL.isNextTo(_prevCL):
+                try:
+                    p = _CL.toLine().intersection(_prevCL.toLine())[0]
+                    _prevCL.p2 = Point(p.x, p.y)
+                    _CL.p1 = Point(p.x, p.y)
+                except:
+                    _prevCL = _CL
+                    continue
+
+            _prevCL = _CL
+
+        if _compositeLinesOrdered[0].p1 != _compositeLinesOrdered[-1].p2:
+            _compositeLinesOrdered.append(CompositeLine(Line(_compositeLinesOrdered[-1].p2, _compositeLinesOrdered[0].p1)))
+
+        _l = [(l.p1.x, l.p1.y) for l in _compositeLinesOrdered]
+
+        _polyLine = g.Polygon(_l)
+
+        print(_polyLine.area)
 
 def readCSV(p_fileName):
     with open(p_fileName, "r") as csvFile:
@@ -253,7 +284,7 @@ def readCSV(p_fileName):
             _pointList.append(_point)
 
         _pl = ClosedPolyLine(_pointList)
-        # _pl.autoPurge()
+        _pl.autoPurge()
 
         _p = _pl.toPlot()
         plt.axis('equal')
@@ -261,5 +292,5 @@ def readCSV(p_fileName):
         plt.show()
 
 if __name__ == "__main__":
-    readCSV("Data/Table.csv")
+    readCSV("Data/Table5.csv")
 
