@@ -145,7 +145,7 @@ class S_CompositeLine(S_Line):
         if isinstance(args[0], S_Line):
             _r = super(S_Line, cls).__new__(cls, args[0].p1, args[0].p2)
         else:
-            _r = super(S_Line, cls).__new__(cls, *args)
+                _r = super(S_Line, cls).__new__(cls, *args)
         return _r
 
     def __init__(self, *args, p_index = 0):
@@ -161,9 +161,10 @@ class S_CompositeLine(S_Line):
             self.p2 = args[1]
         self.index = p_index
         self.toBeUsed = True
+        self.added = False
 
     def __repr__(self):
-        return f"CompositeLine: {self.p1} -> {self.p2}"
+        return f"CL {'T' if self.toBeUsed else 'F'}: {self.p1} -> {self.p2}"
 
     @property
     def p1(self):
@@ -199,18 +200,18 @@ class S_CompositeLine(S_Line):
         return self.length
 
     def isNextTo(self, p_other):
-        return self.p2 == p_other.p1
+        return self.p1 == p_other.p2
 
     def toLine(self):
         _r = g.Line(self.p1, self.p2)
         return _r
 
+    @property
+    def order(self):
+        return self.length
 
-class ClosedPolyLine(g.Polygon):
-    def __new__(cls, p_list):
-        result = super().__new__(cls, *p_list)
-        return result
 
+class S_ClosedPolyLine():
     def __init__(self, p_list):
         self.compositeLines = []
         pPrev = p_list[0]
@@ -226,31 +227,43 @@ class ClosedPolyLine(g.Polygon):
                 self.compositeLines.append(_cLine)
                 self.maxIndex += 1
             pPrev = p
-        _line = S_Line(pPrev, p_list[0])
-        # self.compositeLines.append(S_CompositeLine(_line))
+        if pPrev != p_list[0]:
+            _line = S_CompositeLine(S_Line(pPrev, p_list[0]))
+            self.compositeLines.append(_line)
+
+    @property
+    def polygon(self):
+        _l = [cl.p1 for cl in self.compositeLines if cl.toBeUsed]
+        _l.append([cl.p2 for cl in self.compositeLines if cl.toBeUsed][-1])
+        _p = g.Polygon(*_l)
+        return _p
 
     def toPlot(self):
         '''For pyplot plotting'''
         pL = []
         cols = "rgbcymk"
         i = 0
-        for cl in self.compositeLines:
-            if cl.toBeUsed:
-                pL.append([cl.p1.x, cl.p2.x, ])
-                pL.append([cl.p1.y, cl.p2.y, ])
-                pL.append(cols[i%len(cols)])
-                i += 1
+        for l, m in zip(self.polygon.vertices, [*self.polygon.vertices[1:], self.polygon.vertices[0], ]):
+            pL.append([l.x, m.x])
+            pL.append([l.y, m.y])
+            pL.append(cols[i % len(cols)])
+            i += 1
         return pL
 
-    def autoPurge(self):
-        _compositeLinesOrdered = sorted(self.compositeLines, key=lambda i: i.length)
-        for c in _compositeLinesOrdered[:15]:
-            c.toBeUsed = False
-
-        _compositeLinesOrdered = sorted(self.compositeLines, key=lambda i: i.index)
-
-        _prevCL = _compositeLinesOrdered[0]
-        for _CL in _compositeLinesOrdered[1:]:
+    def reconnectAllEdges(self):
+        _firstCL = None
+        _prevCL = None
+        _started = False
+        for _CL in [*self.compositeLines, *self.compositeLines, ]:
+            if _prevCL and _prevCL is _firstCL:
+                if not _started:
+                    _started = True
+                else:
+                    break
+            if not _firstCL and _CL.toBeUsed:
+                _firstCL = _CL
+                _prevCL = _CL
+                continue
             if not _CL.toBeUsed:
                 continue
             if not _CL.isNextTo(_prevCL):
@@ -258,28 +271,40 @@ class ClosedPolyLine(g.Polygon):
                     p = _CL.toLine().intersection(_prevCL.toLine())[0]
                     _prevCL.p2 = S_Point(p.x, p.y)
                     _CL.p1 = S_Point(p.x, p.y)
-                except:
+                finally:
                     _prevCL = _CL
                     continue
-
             _prevCL = _CL
 
-        if _compositeLinesOrdered[0].p1 != _compositeLinesOrdered[-1].p2:
-            _compositeLinesOrdered.append(S_CompositeLine(S_Line(_compositeLinesOrdered[-1].p2, _compositeLinesOrdered[0].p1)))
+    def removeOneSegmentAndReconnect(self):
+        _compositeLinesOrdered = sorted(self.compositeLines, key=lambda i: i.order)
+        _i = len(list(filter(lambda i: not i.toBeUsed, _compositeLinesOrdered)))
+        _compositeLinesOrdered[_i].toBeUsed = False
+        _compositeLinesOrdered = sorted(self.compositeLines, key=lambda i: i.index)
 
-        _l = [(l.p1.x, l.p1.y) for l in _compositeLinesOrdered]
+        self.compositeLines = _compositeLinesOrdered
+        self.reconnectAllEdges()
 
-        _l.append((_l[0][0], _l[0][1]))
+    def autoPurge(self, p_aDiff = 0.01):
+        aOriginal = math.fabs(self.polygon.area)
 
-        _polyLine = g.Polygon(*_l)
+        while (_r := math.fabs((math.fabs(self.polygon.area)  - aOriginal)) / aOriginal) < p_aDiff and len(self.polygon.vertices) > 3:
+            self.removeOneSegmentAndReconnect()
 
-        print(float(_polyLine.area))
+        # if self.compositeLines[0].p1 != self.compositeLines[-1].p2:
+        #     self.compositeLines.append(S_CompositeLine(S_Line(self.compositeLines[-1].p2, self.compositeLines[0].p1)))
+
+        # _l = [(l.p1.x, l.p1.y) for l in self.compositeLines]
+        #
+        # _polyLine = g.Polygon(*_l)
+
+        print(float(self.polygon.area))
 
 def readCSV(p_fileName):
     with open(p_fileName, "r") as csvFile:
         _prevLine = None
 
-        S_Line.setEPS(1)
+        # S_Line.setEPS(1)
 
         _pointList = []
 
@@ -288,7 +313,7 @@ def readCSV(p_fileName):
             _point = S_Point(row[0], row[1])
             _pointList.append(_point)
 
-        _pl = ClosedPolyLine(_pointList)
+        _pl = S_ClosedPolyLine(_pointList)
         _pl.autoPurge()
 
         _p = _pl.toPlot()
@@ -297,5 +322,5 @@ def readCSV(p_fileName):
         plt.show()
 
 if __name__ == "__main__":
-    readCSV("Data/Table.csv")
+    readCSV("Data/Table5.csv")
 
