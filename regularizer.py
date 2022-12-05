@@ -6,7 +6,7 @@ import uuid
 from sympy import geometry as g
 
 
-class Point(g.Point2D):
+class S_Point(g.Point2D):
     EPS = 0.001
     def __new__(cls, p_x, p_y):
         _x = float(p_x)
@@ -15,14 +15,15 @@ class Point(g.Point2D):
         return result
 
     def __str__(self):
-        return f"Point({self.x}, {self.y})"
+        return f"S_Point({float(self.x)}, {float(self.y)})"
+
+    def __repr__(self):
+        return self.__str__()
 
     def __eq__(self, other):
-        EPS = Point.EPS
+        EPS = S_Point.EPS
         return self.x - EPS < other.x < self.x + EPS and self.y - EPS < other.y < self.y + EPS
 
-    def __str__(self):
-        return f"POINT ({float(self.x)}, {float(self.y)})"
 
 class Slope(float):
     EPS = 0.1
@@ -62,24 +63,21 @@ class Slope(float):
         return self.isAngleAt(p_other, p_checkBothSides=True)
 
 
-class Line(g.Segment):
+class S_Line(g.Segment2D):
     EPS = 0.1
 
     def __new__(cls, *args):
-        _r = super(g.Segment, cls).__new__(cls, *args)
+        _r = super(S_Line, cls).__new__(cls, *args)
         return _r
 
-    def __init__(self, p_p1: Point, p_p2: Point, ):
+    def __init__(self, p_p1: S_Point, p_p2: S_Point, ):
         _list = [(p_p1.x, p_p1.y), (p_p2.x, p_p2.y), ]
         self.guid = uuid.uuid4()
         self.l1 = None
         self.l2 = None
 
     def __str__(self):
-        return f"Line {self.p1} - {self.p2}"
-
-    def __repr__(self):
-        return f"Line {self.p1} - {self.p2}"
+        return f"S_Line {self.p1} - {self.p2}"
 
     @classmethod
     def setEPS(cls, p_eps):
@@ -112,7 +110,7 @@ class Line(g.Segment):
     def getLength(self)->float:
         return math.sqrt((self._dx()) ** 2 + (self._dy()) ** 2)
 
-    def distToPoint(self, p_point:Point) -> float:
+    def distToPoint(self, p_point:S_Point) -> float:
         return (math.fabs((self._dx()) * (self.p1.y-p_point.y) - (self._dy()) * (self.p1.x-p_point.x)))  / self.getLength()
 
     def slope(self)->float:
@@ -122,9 +120,9 @@ class Line(g.Segment):
             return math.pi/2
 
     def __eq__(self, other):
-        EPS = Line.EPS
-        _d1 = self.distToPoint(Point(0,0))
-        _d2 = other.distToPoint(Point(0,0))
+        EPS = S_Line.EPS
+        _d1 = self.distToPoint(S_Point(0, 0))
+        _d2 = other.distToPoint(S_Point(0, 0))
         _s1 = self.slope()
         _s2 = other.slope()
         if _s1 > math.pi/2 - EPS and _s2 < -math.pi/2 + EPS:
@@ -142,20 +140,23 @@ class Line(g.Segment):
         return self.guid.int
 
 
-class CompositeLine(Line):
+class S_CompositeLine(S_Line):
     def __new__(cls, *args):
-        _r = super(Line, cls).__new__(cls, *args)
+        if isinstance(args[0], S_Line):
+            _r = super(S_Line, cls).__new__(cls, args[0].p1, args[0].p2)
+        else:
+            _r = super(S_Line, cls).__new__(cls, *args)
         return _r
 
     def __init__(self, *args, p_index = 0):
         super(g.Segment, self).__init__()
         if len(args) == 1:
-            if isinstance(args[0], Line):
+            if isinstance(args[0], S_Line):
                 self.lineList = [args[0]]
                 self.p1 = args[0].p1
                 self.p2 = args[0].p2
         if len(args) == 2:
-            self.lineList = [Line(args[0], args[1])]
+            self.lineList = [S_Line(args[0], args[1])]
             self.p1 = args[0]
             self.p2 = args[1]
         self.index = p_index
@@ -180,19 +181,19 @@ class CompositeLine(Line):
     def p2(self, p_p2):
         self._p2 = p_p2
 
-    def add(self, other:Line):
+    def add(self, other:S_Line):
         if self.p1 == other.p1:
             self.p1 = other.p2
-            self.lineList = [Line(other.p2, other.p1)] + self.lineList
+            self.lineList = [S_Line(other.p2, other.p1)] + self.lineList
         elif self.p1 == other.p2:
             self.p1 = other.p1
-            self.lineList = [Line(other.p1, other.p2)] + self.lineList
+            self.lineList = [S_Line(other.p1, other.p2)] + self.lineList
         elif self.p2 == other.p1:
             self.p2 = other.p2
-            self.lineList = self.lineList + [Line(other.p1, other.p2)]
+            self.lineList = self.lineList + [S_Line(other.p1, other.p2)]
         elif self.p2 == other.p2:
             self.p2 = other.p1
-            self.lineList = self.lineList + [Line(other.p2, other.p1)]
+            self.lineList = self.lineList + [S_Line(other.p2, other.p1)]
 
     def getPoint(self):
         return self.length
@@ -216,15 +217,17 @@ class ClosedPolyLine(g.Polygon):
         self.maxIndex = 0
 
         for p in p_list[1:]:
-            seg = Line(pPrev, p)
+            seg = S_Line(pPrev, p)
 
             if len(self.compositeLines) and self.compositeLines[-1] == seg:
                 self.compositeLines[-1].add(seg)
             else:
-                _cLine = CompositeLine(seg)
+                _cLine = S_CompositeLine(seg)
                 self.compositeLines.append(_cLine)
                 self.maxIndex += 1
             pPrev = p
+        _line = S_Line(pPrev, p_list[0])
+        # self.compositeLines.append(S_CompositeLine(_line))
 
     def toPlot(self):
         '''For pyplot plotting'''
@@ -253,8 +256,8 @@ class ClosedPolyLine(g.Polygon):
             if not _CL.isNextTo(_prevCL):
                 try:
                     p = _CL.toLine().intersection(_prevCL.toLine())[0]
-                    _prevCL.p2 = Point(p.x, p.y)
-                    _CL.p1 = Point(p.x, p.y)
+                    _prevCL.p2 = S_Point(p.x, p.y)
+                    _CL.p1 = S_Point(p.x, p.y)
                 except:
                     _prevCL = _CL
                     continue
@@ -262,25 +265,27 @@ class ClosedPolyLine(g.Polygon):
             _prevCL = _CL
 
         if _compositeLinesOrdered[0].p1 != _compositeLinesOrdered[-1].p2:
-            _compositeLinesOrdered.append(CompositeLine(Line(_compositeLinesOrdered[-1].p2, _compositeLinesOrdered[0].p1)))
+            _compositeLinesOrdered.append(S_CompositeLine(S_Line(_compositeLinesOrdered[-1].p2, _compositeLinesOrdered[0].p1)))
 
         _l = [(l.p1.x, l.p1.y) for l in _compositeLinesOrdered]
 
-        _polyLine = g.Polygon(_l)
+        _l.append((_l[0][0], _l[0][1]))
 
-        print(_polyLine.area)
+        _polyLine = g.Polygon(*_l)
+
+        print(float(_polyLine.area))
 
 def readCSV(p_fileName):
     with open(p_fileName, "r") as csvFile:
         _prevLine = None
 
-        Line.setEPS(1)
+        S_Line.setEPS(1)
 
         _pointList = []
 
         for row in csv.reader(csvFile):
 
-            _point = Point(row[0], row[1])
+            _point = S_Point(row[0], row[1])
             _pointList.append(_point)
 
         _pl = ClosedPolyLine(_pointList)
@@ -292,5 +297,5 @@ def readCSV(p_fileName):
         plt.show()
 
 if __name__ == "__main__":
-    readCSV("Data/Table5.csv")
+    readCSV("Data/Table.csv")
 
