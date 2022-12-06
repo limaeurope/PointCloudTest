@@ -1,143 +1,10 @@
 import csv
 import math
-# from shapely import geometry as g
 from matplotlib import pyplot as plt
-import uuid
 from sympy import geometry as g
 
-
-class S_Point(g.Point2D):
-    EPS = 0.001
-    def __new__(cls, p_x, p_y):
-        _x = float(p_x)
-        _y = float(p_y)
-        result = super().__new__(cls, _x, _y)
-        return result
-
-    def __str__(self):
-        return f"S_Point({float(self.x)}, {float(self.y)})"
-
-    def __repr__(self):
-        return self.__str__()
-
-    def __eq__(self, other):
-        EPS = S_Point.EPS
-        return self.x - EPS < other.x < self.x + EPS and self.y - EPS < other.y < self.y + EPS
-
-
-class Slope(float):
-    EPS = 0.1
-
-    def __eq__(self, other):
-        EPS = Slope.EPS
-        _s = float(self)
-
-        if self > math.pi/2 - EPS and other < -math.pi/2 + EPS:
-            other += math.pi
-        if self < -math.pi/2 + EPS and other > math.pi/2 - EPS:
-            _s += math.pi
-
-        return _s - EPS < other < _s + EPS
-
-    def isParallel(self, p_other):
-        return self == p_other
-
-    def isAngleAt(self, p_other, p_angle, p_checkBothSides = False):
-        EPS = Slope.EPS
-        _s = float(self)
-
-        if p_other - _s <= -math.pi/2:
-            p_other += math.pi/2
-
-        result = p_angle -EPS <= p_other - _s <= p_angle + EPS
-
-        if p_checkBothSides:
-            if _s - p_other <= -math.pi / 2:
-                _s += math.pi / 2
-
-            result |= p_angle - EPS <= _s - p_other <= p_angle + EPS
-
-        return result
-
-    def isPerpendicular(self, p_other):
-        return self.isAngleAt(p_other, p_checkBothSides=True)
-
-
-class S_Line(g.Segment2D):
-    EPS = 0.1
-
-    def __new__(cls, *args):
-        _r = super(S_Line, cls).__new__(cls, *args)
-        return _r
-
-    def __init__(self, p_p1: S_Point, p_p2: S_Point, ):
-        _list = [(p_p1.x, p_p1.y), (p_p2.x, p_p2.y), ]
-        self.guid = uuid.uuid4()
-        self.l1 = None
-        self.l2 = None
-
-    def __str__(self):
-        return f"S_Line {self.p1} - {self.p2}"
-
-    @classmethod
-    def setEPS(cls, p_eps):
-        cls.EPS = p_eps
-
-    def connect(self, p_line):
-        if self.p1 == p_line.p1:
-            self.l1 = p_line
-            p_line.l1 = self
-        if self.p1 == p_line.p2:
-            self.l1 = p_line
-            p_line.l2 = self
-
-        if self.p2 == p_line.p1:
-            self.l2 = p_line
-            p_line.l1 = self
-        if self.p2 == p_line.p2:
-            self.l2 = p_line
-            p_line.l2 = self
-
-    def _dx(self)->float:
-        return self.p2.x - self.p1.x
-
-    def _dy(self)->float:
-        return self.p2.y - self.p1.y
-
-    def toList(self):
-        return [self.p1.x, self.p2.x], [self.p1.y, self.p2.y]
-
-    def getLength(self)->float:
-        return math.sqrt((self._dx()) ** 2 + (self._dy()) ** 2)
-
-    def distToPoint(self, p_point:S_Point) -> float:
-        return (math.fabs((self._dx()) * (self.p1.y-p_point.y) - (self._dy()) * (self.p1.x-p_point.x)))  / self.getLength()
-
-    def slope(self)->float:
-        if math.fabs(self._dx()) > 0:
-            return math.atan(self._dy() / self._dx())
-        else:
-            return math.pi/2
-
-    def __eq__(self, other):
-        EPS = S_Line.EPS
-        _d1 = self.distToPoint(S_Point(0, 0))
-        _d2 = other.distToPoint(S_Point(0, 0))
-        _s1 = self.slope()
-        _s2 = other.slope()
-        if _s1 > math.pi/2 - EPS and _s2 < -math.pi/2 + EPS:
-            _s2 += math.pi
-        if _s1 < -math.pi/2 + EPS and _s2 > math.pi/2 - EPS:
-            _s1 += math.pi
-
-        return _d1 - EPS < _d2 < _d1 + EPS \
-        and _s1 - EPS < _s2 < _s1 + EPS
-
-    def getSimilarLines(self, p_list:list, p_aEps, p_dEps)->list:
-        return [l for l in p_list if l == self]
-
-    def __hash__(self):
-        return self.guid.int
+from Classes.S_Point import S_Point
+from Classes.S_Line import S_Line
 
 
 class S_CompositeLine(S_Line):
@@ -164,7 +31,7 @@ class S_CompositeLine(S_Line):
         self.added = False
 
     def __repr__(self):
-        return f"CL {'T' if self.toBeUsed else 'F'}: {self.p1} -> {self.p2}"
+        return f"CL {'O' if self.toBeUsed else 'X'}:({float(self.p1.x)},{float(self.p1.y)})->({float(self.p2.x)},{float(self.p2.y)})"
 
     @property
     def p1(self):
@@ -217,6 +84,7 @@ class S_ClosedPolyLine():
         pPrev = p_list[0]
         self.maxIndex = 0
 
+        #FIXME not elegant
         for p in p_list[1:]:
             seg = S_Line(pPrev, p)
 
@@ -251,29 +119,15 @@ class S_ClosedPolyLine():
         return pL
 
     def reconnectAllEdges(self):
-        _firstCL = None
         _prevCL = None
-        _started = False
+
         for _CL in [*self.compositeLines, *self.compositeLines, ]:
-            if _prevCL and _prevCL is _firstCL:
-                if not _started:
-                    _started = True
-                else:
-                    break
-            if not _firstCL and _CL.toBeUsed:
-                _firstCL = _CL
-                _prevCL = _CL
-                continue
             if not _CL.toBeUsed:
                 continue
-            if not _CL.isNextTo(_prevCL):
-                try:
-                    p = _CL.toLine().intersection(_prevCL.toLine())[0]
-                    _prevCL.p2 = S_Point(p.x, p.y)
-                    _CL.p1 = S_Point(p.x, p.y)
-                finally:
-                    _prevCL = _CL
-                    continue
+            elif _prevCL and not _CL.isNextTo(_prevCL):
+                p = _CL.toLine().intersection(_prevCL.toLine())[0]
+                _prevCL.p2 = S_Point(p.x, p.y)
+                _CL.p1 = S_Point(p.x, p.y)
             _prevCL = _CL
 
     def removeOneSegmentAndReconnect(self):
@@ -288,15 +142,11 @@ class S_ClosedPolyLine():
     def autoPurge(self, p_aDiff = 0.01):
         aOriginal = math.fabs(self.polygon.area)
 
+        print(len(self.polygon.vertices))
+
         while (_r := math.fabs((math.fabs(self.polygon.area)  - aOriginal)) / aOriginal) < p_aDiff and len(self.polygon.vertices) > 3:
+            print(len(self.polygon.vertices))
             self.removeOneSegmentAndReconnect()
-
-        # if self.compositeLines[0].p1 != self.compositeLines[-1].p2:
-        #     self.compositeLines.append(S_CompositeLine(S_Line(self.compositeLines[-1].p2, self.compositeLines[0].p1)))
-
-        # _l = [(l.p1.x, l.p1.y) for l in self.compositeLines]
-        #
-        # _polyLine = g.Polygon(*_l)
 
         print(float(self.polygon.area))
 
@@ -304,16 +154,15 @@ def readCSV(p_fileName):
     with open(p_fileName, "r") as csvFile:
         _prevLine = None
 
-        # S_Line.setEPS(1)
-
         _pointList = []
 
         for row in csv.reader(csvFile):
-
             _point = S_Point(row[0], row[1])
             _pointList.append(_point)
 
+        S_Line.setEPS(1)
         _pl = S_ClosedPolyLine(_pointList)
+        print(1)
         _pl.autoPurge()
 
         _p = _pl.toPlot()
@@ -322,5 +171,5 @@ def readCSV(p_fileName):
         plt.show()
 
 if __name__ == "__main__":
-    readCSV("Data/Table5.csv")
+    readCSV("Data/Table.csv")
 
