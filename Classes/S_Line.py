@@ -1,7 +1,6 @@
 from Classes.S_Point import *
 import math
 import uuid
-from sympy import geometry as g
 
 
 class S_Line:
@@ -73,11 +72,35 @@ class S_Line:
     def distToPoint(self, p_point:S_Point) -> float:
         return (math.fabs((self._dx()) * (self._p1.y-p_point.y) - (self._dy()) * (self._p1.x-p_point.x)))  / self.getLength()
 
+    def distToOrigo(self):
+        return self.distToPoint(S_Point(0,0))
+
     def slope(self)->float:
+        #FIXME to use sympy slope
         if math.fabs(self._dx()) > 0:
             return math.atan(self._dy() / self._dx())
         else:
             return math.pi/2
+
+    def lengthen(self, p_dist, begin=True, end=True, isProportion=False):
+        if not isProportion:
+            ratio = p_dist / self.getLength()
+        else:
+            ratio = p_dist
+        _dX = self._p2.x - self._p1.x
+        _dY = self._p2.y - self._p1.y
+        _p1 = self._p1
+        _p2 = self._p2
+        if begin:
+            _p1x = self._p2.x - (1 + ratio) * _dX
+            _p1y = self._p2.y - (1 + ratio) * _dY
+            _p1 = S_Point(_p1x, _p1y)
+        if end:
+            _p2x = self._p1.x + (1 + ratio) * _dX
+            _p2y = self._p1.y + (1 + ratio) * _dY
+            _p2 = S_Point(_p2x, _p2y)
+        self._p1 = _p1
+        self._p2 = _p2
 
     def __eq__(self, other):
         EPS = S_Line.EPS
@@ -101,69 +124,4 @@ class S_Line:
         return self.guid.int
 
 
-class S_CompositeLine(S_Line):
-    def __init__(self, *args, index = 0):
-        super().__init__(args[0].p1, args[0].p2)
-        if len(args) == 1:
-            if isinstance(args[0], S_Line):
-                self.lineList = [args[0]]
-                self._p1 = args[0].p1
-                self._p2 = args[0].p2
-        if len(args) == 2:
-            self.lineList = [S_Line(args[0], args[1])]
-            self._p1 = args[0]
-            self._p2 = args[1]
-        self.index = index
-        self.toBeUsed = True
-        self.added = False
-        self.segment = g.Segment2D(self.p1, self.p2)
-
-    def __repr__(self):
-        return f"CL {'O' if self.toBeUsed else 'X'}:({float(self.p1.x)},{float(self.p1.y)})->({float(self.p2.x)},{float(self.p2.y)})"
-
-    @property
-    def p1(self):
-        return self._p1
-
-    @p1.setter
-    def p1(self, p_p1):
-        self._p1 = p_p1
-        self.segment = g.Segment2D(self._p1, self._p2)
-
-    @property
-    def p2(self):
-        return self._p2
-
-    @p2.setter
-    def p2(self, p_p2):
-        self._p2 = p_p2
-        self.segment = g.Segment2D(self._p1, self._p2)
-
-    def add(self, other:S_Line):
-        if self.p1 == other.p1:
-            self.p1 = other.p2
-            self.lineList = [S_Line(other.p2, other.p1)] + self.lineList
-        elif self.p1 == other.p2:
-            self.p1 = other.p1
-            self.lineList = [S_Line(other.p1, other.p2)] + self.lineList
-        elif self.p2 == other.p1:
-            self.p2 = other.p2
-            self.lineList = self.lineList + [S_Line(other.p1, other.p2)]
-        elif self.p2 == other.p2:
-            self.p2 = other.p1
-            self.lineList = self.lineList + [S_Line(other.p2, other.p1)]
-
-    def getPoint(self):
-        return self.segment.length
-
-    def isNextTo(self, p_other):
-        return self.p1 == p_other.p2
-
-    def toLine(self):
-        _r = g.Line(self.p1, self.p2)
-        return _r
-
-    @property
-    def order(self):
-        return self.segment.length
 
