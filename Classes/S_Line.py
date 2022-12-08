@@ -18,6 +18,24 @@ class S_Line:
     def __str__(self):
         return f"S_Line {self._p1} - {self._p2}"
 
+    def __eq__(self, other):
+        EPS = S_Line.EPS
+        EPS_ANG = S_Line.EPS_ANG
+        _d1 = self.distToPoint(S_Point(0, 0))
+        _d2 = other.distToPoint(S_Point(0, 0))
+        _s1 = self.slope()
+        _s2 = other.slope()
+        if _s1 > math.pi/2 - EPS and _s2 < -math.pi/2 + EPS:
+            _s2 += math.pi
+        if _s1 < -math.pi/2 + EPS and _s2 > math.pi/2 - EPS:
+            _s1 += math.pi
+
+        return _d1 - EPS < _d2 < _d1 + EPS \
+        and _s1 - EPS_ANG < _s2 < _s1 + EPS_ANG
+
+    def __hash__(self):
+        return self.guid.int
+
     @classmethod
     def setEPS(cls, p_eps):
         cls.EPS = p_eps
@@ -102,26 +120,12 @@ class S_Line:
         self._p1 = _p1
         self._p2 = _p2
 
-    def __eq__(self, other):
-        EPS = S_Line.EPS
-        EPS_ANG = S_Line.EPS_ANG
-        _d1 = self.distToPoint(S_Point(0, 0))
-        _d2 = other.distToPoint(S_Point(0, 0))
-        _s1 = self.slope()
-        _s2 = other.slope()
-        if _s1 > math.pi/2 - EPS and _s2 < -math.pi/2 + EPS:
-            _s2 += math.pi
-        if _s1 < -math.pi/2 + EPS and _s2 > math.pi/2 - EPS:
-            _s1 += math.pi
+    # def getSimilarLines(self, p_list:list, p_aEps, p_dEps)->list:
+    #     return [l for l in p_list if l == self]
 
-        return _d1 - EPS < _d2 < _d1 + EPS \
-        and _s1 - EPS_ANG < _s2 < _s1 + EPS_ANG
+    def getMidPoint(self):
+        return S_Point((self._p1.x + self._p2.x) / 2, (self._p1.y + self._p2.y) / 2)
 
-    def getSimilarLines(self, p_list:list, p_aEps, p_dEps)->list:
-        return [l for l in p_list if l == self]
-
-    def __hash__(self):
-        return self.guid.int
-
-
+    def getManhattanDist(self, p_other):
+        return math.fabs(self.slope() - p_other.slope) // S_Line.EPS_ANG + math.fabs(self.distToOrigo() + p_other.distToOrigo()) // S_Line.EPS
 

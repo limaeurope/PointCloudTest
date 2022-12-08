@@ -13,28 +13,38 @@ class S_LineContainer:
     EPS_ANG = 0.01
 
     def __init__(self):
-        self.m_dict = {}
+        self.m_dictByAngAndDist = {}
+        self.m_dictByAng = {}
+        self.m_dictDist = {}
 
     def __setitem__(self, key, value):
-        if key not in self.m_dict:
-            self.m_dict[key] = [value]
+        if key not in self.m_dictByAngAndDist:
+            self.m_dictByAngAndDist[key] = [value]
         else:
-            self.m_dict[key].append(value)
+            self.m_dictByAngAndDist[key].append(value)
 
     def __str__(self):
-        for i, v in self.m_dict.items():
+        for i, v in self.m_dictByAngAndDist.items():
             if len(v) > 2:
                 print(i, v)
 
-    def add(self, p:S_CompositeLine):
-        _s = (p.slope() - S_LineContainer.EPS_ANG) // S_LineContainer.EPS_ANG
-        _d = (p.distToOrigo() - S_LineContainer.EPS) // S_LineContainer.EPS
+    def collectByAngAndDist(self, p:S_CompositeLine):
+        _s = (p.slope() - S_LineContainer.EPS_ANG/2) // S_LineContainer.EPS_ANG
+        _d = (p.distToOrigo() - S_LineContainer.EPS/2) // S_LineContainer.EPS
         self[(_s, _d)] = p
+
+    def collectByAng(self, p:S_CompositeLine):
+        _s = (p.slope() - S_LineContainer.EPS_ANG/2) // S_LineContainer.EPS_ANG
+        self.m_dictByAng[(_s)] = p
+
+    def collectByDist(self, p:S_CompositeLine):
+        _d = (p.distToOrigo() - S_LineContainer.EPS/2) // S_LineContainer.EPS
+        self.m_dictDist[_d] = p
 
     def toPlot(self, p_moreThan = 1):
         plotList = []
 
-        for k, v in self.m_dict.items():
+        for k, v in self.m_dictByAngAndDist.items():
             if len(list(filter(lambda i:i.toBeUsed, v))) > p_moreThan:
                 seg = S_CompositeLine(v[0])
                 for s in v[1:]:
@@ -159,12 +169,12 @@ def readCSV(p_fileName):
         _pl.autoPurge(0.004)
         _p = _pl.toPlot()
 
-        S_LineContainer.EPS = 1
-        S_LineContainer.EPS_ANG = .3
+        S_LineContainer.EPS = .1
+        S_LineContainer.EPS_ANG = .1
         _lc = S_LineContainer()
 
         for l in _pl:
-            _lc.add(l)
+            _lc.collectByAngAndDist(l)
 
         _p2 = _lc.toPlot()
 
