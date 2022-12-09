@@ -3,9 +3,13 @@ from sympy import geometry as g
 
 class S_Point(g.Point2D):
     EPS = 0.001
-    def __new__(cls, p_x, p_y):
-        _x = float(p_x)
-        _y = float(p_y)
+    def __new__(cls, *args):
+        if len(args) == 1:
+            _x = float(args[0].x)
+            _y = float(args[0].y)
+        if len(args) == 2:
+            _x = float(args[0])
+            _y = float(args[1])
         result = super().__new__(cls, _x, _y)
         return result
 

@@ -129,3 +129,8 @@ class S_Line:
     def getManhattanDist(self, p_other):
         return math.fabs(self.slope() - p_other.slope) // S_Line.EPS_ANG + math.fabs(self.distToOrigo() + p_other.distToOrigo()) // S_Line.EPS
 
+    def projectToOtherLine(self, p_other):
+        l = g.Line(p_other.p1, p_other.p2)
+        self.p1 = S_Point(l.projection(self._p1))
+        self.p2 = S_Point(l.projection(self._p2))
+
