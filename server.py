@@ -1,8 +1,6 @@
 from http import server
 import json
 import sys
-import urllib
-from urllib.parse import parse_qsl
 
 
 from Classes.S_Point import S_Point
@@ -22,8 +20,7 @@ class LineCollector:
         for coordPair in p_messageBody['points']:
             _point = S_Point(coordPair[0], coordPair[1])
             self.pointList.append(_point)
-
-            self.closedPolyLine  = S_ClosedPolyLine(self.pointList)
+        self.closedPolyLine  = S_ClosedPolyLine(self.pointList)
 
     def getPointTree(self):
         return self.closedPolyLine.toJSON()
@@ -34,19 +31,22 @@ class LineCollector:
     def setAngularEPS(self, p_angularEPS):
         S_Line.setAngularEPS(p_angularEPS)
 
+    def toDict(self):
+        return self.closedPolyLine.toDict()
+
 
 class requestHandler(server.CGIHTTPRequestHandler):
     def do_POST(self) -> None:
         content_len = int(self.headers.get('Content-Length'))
-        body = self.rfile.read(content_len).decode("UTF-8")
-        body = dict(parse_qsl(body))
+        body = self.rfile.read(content_len).decode()
+        body = json.loads(body)
 
         lc = LineCollector(body)
 
         self.send_response(200)
         self.send_header('Content-type', 'text/html')
         self.end_headers()
-        response = {'resultPoints': lc.getPointTree()}
+        response = {'resultPoints': lc.toDict()}
 
         json_str = json.dumps(response)
         self.wfile.write(bytes(json_str, "utf-8"))

@@ -58,6 +58,13 @@ class S_ClosedPolyLine:
             i += 1
         return pL
 
+    def toDict(self):
+        """As a server response in JSON"""
+        result = []
+        for p in self.polygon.vertices:
+            result.append([float(p.x), float(p.y)])
+        return result
+
     def reconnectAllEdges(self):
         _compositeLines = list(filter(lambda cl: cl.toBeUsed and not cl.added, self.compositeLines))
         _unusedLines = list(filter(lambda cl: not cl.toBeUsed and not cl.added, self.compositeLines))
