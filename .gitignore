@@ -2,3 +2,5 @@
 *.3dm*
 *.gh
 *.pyc
+Data/*.e57
+Data/*BIG.txt
