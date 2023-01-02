@@ -62,7 +62,7 @@ class S_ClosedPolyLine:
         """As a server response in JSON"""
         result = []
         for p in self.polygon.vertices:
-            result.append([float(p.x), float(p.y)])
+            result.append([float(p.x + self.pCen.x), float(p.y + self.pCen.y)])
         return result
 
     def reconnectAllEdges(self):
@@ -138,9 +138,9 @@ class S_ClosedPolyLine:
         return S_Point((xMin + xMax) / 2, (yMin + yMax) / 2)
 
     def pointsToLocal(self, p_pointList):
-        pCen = self.getBBCentroid(p_pointList)
+        self.pCen = self.getBBCentroid(p_pointList)
 
-        return list(map(lambda p:p-pCen, p_pointList))
+        return list(map(lambda p:p-self.pCen, p_pointList))
 
     def toJSON(self):
         result = {'points': []}
