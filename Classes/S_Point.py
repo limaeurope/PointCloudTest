@@ -21,7 +21,8 @@ class S_Point(g.Point2D):
 
     def __eq__(self, other):
         EPS = S_Point.EPS
-        return self.x - EPS < other.x < self.x + EPS and self.y - EPS < other.y < self.y + EPS
+        return  self.x - EPS < other.x < self.x + EPS \
+            and self.y - EPS < other.y < self.y + EPS
 
     def __sub__(self, other):
         return S_Point(self.x - other.x, self.y - other.y)

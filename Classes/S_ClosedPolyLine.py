@@ -1,6 +1,7 @@
 from Classes.S_CompositeLine import S_CompositeLine
 from Classes.S_Line import S_Line
 from sympy import geometry as g
+import sympy
 from Classes.S_Point import S_Point
 import math
 import json
@@ -74,7 +75,8 @@ class S_ClosedPolyLine:
         for _CL in _compositeLines:
             if not _CL.isNextTo(_prevCL) and not _CL.added:
                 try:
-                    p = _CL.toLine().intersection(_prevCL.toLine())[0]
+                    _p = _CL.toLine().intersection(_prevCL.toLine())
+                    p = _p[0]
                     _prevCL.p2 = S_Point(p.x, p.y)
                     _CL.p1 = S_Point(p.x, p.y)
                     _CL.previousSegment = _prevCL
@@ -83,7 +85,7 @@ class S_ClosedPolyLine:
                         _CL.toBeUsed = False
                     else:
                         _prevCL = _CL
-                except IndexError:
+                except (IndexError, AttributeError):
                     cl = S_CompositeLine(_prevCL.p2, _CL.p1)
                     cl.added = True
                     cl.index = _prevCL.index
@@ -111,6 +113,7 @@ class S_ClosedPolyLine:
         aOriginal = math.fabs(self.polygon.area)
 
         _prevDiff = 0
+        _i = 0
         _iPrev = len(self.polygon.vertices)
 
         print(_iPrev)
@@ -121,30 +124,34 @@ class S_ClosedPolyLine:
                 print(len(self.polygon.vertices))
                 self.removeOneSegmentAndReconnect()
                 _prevDiff = _r
-                # if _iPrev == len(self.polygon.vertices):
-                #     break
-                _iPrev = len(self.polygon.vertices)
+
+                if True:
+                    with open(f"Dumps\\{_i}_.json", "w") as j:
+                        j.write(self.toJSON())
+                        _i += 1
+
             except KeyboardInterrupt:
                 break
 
         print(float(self.polygon.area))
 
     @staticmethod
-    def getBBCentroid(p_pointList):
+    def getBB(p_pointList):
         xMax = max(map(lambda p:p.x, p_pointList))
         xMin = min(map(lambda p:p.x, p_pointList))
         yMax = max(map(lambda p:p.y, p_pointList))
         yMin = min(map(lambda p:p.y, p_pointList))
-        return S_Point((xMin + xMax) / 2, (yMin + yMax) / 2)
+
+        return S_Point((xMin + xMax) / 2, (yMin + yMax) / 2), S_Point(xMin, yMin), S_Point(xMax, yMax)
 
     def pointsToLocal(self, p_pointList):
-        self.pCen = self.getBBCentroid(p_pointList)
+        self.pCen, self.pMin, self.pMax = self.getBB(p_pointList)
 
         return list(map(lambda p:p-self.pCen, p_pointList))
 
-    def toJSON(self):
+    def toJSON(self, p_indent=4, BBoxToOrigo=False):
         result = {'points': []}
         for point in self.polygon.vertices:
-            result['points'].append([point.x, point.y])
+            result['points'].append([float(point.x + (self.pCen.x if BBoxToOrigo else 0)), float(point.y + (self.pCen.y if BBoxToOrigo else 0))])
 
-        return json.dumps(result)
+        return json.dumps(result, indent=p_indent)

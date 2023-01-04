@@ -4,3 +4,5 @@
 *.pyc
 Data/*.e57
 Data/*BIG.txt
+Data/Cloud_*.txt
+Dumps/*
