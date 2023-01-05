@@ -1,17 +1,19 @@
-from sympy import geometry as g
+# from sympy import geometry as g
+from shapely import geometry as g
 
 
-class S_Point(g.Point2D):
+class S_Point(g.Point):
     EPS = 0.001
-    def __new__(cls, *args):
+    def __init__(self, *args):
         if len(args) == 1:
             _x = float(args[0].x)
             _y = float(args[0].y)
-        if len(args) == 2:
+        else:
+        # if len(args) == 2:
             _x = float(args[0])
             _y = float(args[1])
-        result = super().__new__(cls, _x, _y)
-        return result
+        result = super().__init__(_x, _y)
+        # return result
 
     def __str__(self):
         return f"S_Point({float(self.x)}, {float(self.y)})"

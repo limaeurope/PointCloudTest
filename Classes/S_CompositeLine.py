@@ -1,5 +1,5 @@
 from Classes.S_Line import S_Line
-from sympy import geometry as g
+from shapely import geometry as g
 
 
 class S_CompositeLine(S_Line):
@@ -18,7 +18,7 @@ class S_CompositeLine(S_Line):
         self.index = index
         self.toBeUsed = True
         self.added = False
-        self.segment = g.Segment2D(self.p1, self.p2)
+        self.segment = g.LineString([self.p1, self.p2])
         self.temporary = False
         self.previousSegment = None
         self.nextSegment = None
@@ -43,7 +43,7 @@ class S_CompositeLine(S_Line):
     @p1.setter
     def p1(self, p_p1):
         self._p1 = p_p1
-        self.segment = g.Segment2D(self._p1, self._p2)
+        self.segment = g.LineString([self._p1, self._p2])
         if self.previousSegment:
             self.previousSegment._p2 = self._p1
 
@@ -54,7 +54,7 @@ class S_CompositeLine(S_Line):
     @p2.setter
     def p2(self, p_p2):
         self._p2 = p_p2
-        self.segment = g.Segment2D(self._p1, self._p2)
+        self.segment = g.LineString([self._p1, self._p2])
         if self.nextSegment:
             self.nextSegment._p1 = self._p2
 
@@ -94,7 +94,7 @@ class S_CompositeLine(S_Line):
         return self.p1 == p_other.p2
 
     def toLine(self):
-        _r = g.Line(self.p1, self.p2)
+        _r = g.LineString([self.p1, self.p2])
         return _r
 
     @property

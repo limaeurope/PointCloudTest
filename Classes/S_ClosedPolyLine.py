@@ -1,7 +1,8 @@
 from Classes.S_CompositeLine import S_CompositeLine
 from Classes.S_Line import S_Line
-from sympy import geometry as g
-import sympy
+# from sympy import geometry as g
+from shapely import geometry as g
+# import sympy
 from Classes.S_Point import S_Point
 import math
 import json
@@ -42,9 +43,9 @@ class S_ClosedPolyLine:
 
     @property
     def polygon(self):
-        _l = [cl.p1 for cl in self.compositeLines if cl.toBeUsed]
-        _l.append([cl.p2 for cl in self.compositeLines if cl.toBeUsed][-1])
-        _p = g.Polygon(*_l)
+        _l = [(_cl.p1.x, _cl.p1.y) for _cl in self.compositeLines if _cl.toBeUsed]
+        _l.append([(_cl.p1.x, _cl.p1.y) for _cl in self.compositeLines if _cl.toBeUsed][-1])
+        _p = g.Polygon(_l)
         return _p
 
     def toPlot(self):
@@ -52,7 +53,7 @@ class S_ClosedPolyLine:
         pL = []
         cols = "rgbcmk"
         i = 0
-        for l, m in zip(self.polygon.vertices, [*self.polygon.vertices[1:], self.polygon.vertices[0], ]):
+        for l, m in zip(self.polygon.exterior.coords, [*self.polygon.exterior.coords[1:], self.polygon[0], ]):
             pL.append([l.x, m.x])
             pL.append([l.y, m.y])
             pL.append(cols[i % len(cols)])
@@ -62,21 +63,23 @@ class S_ClosedPolyLine:
     def toDict(self):
         """As a server response in JSON"""
         result = []
-        for p in self.polygon.vertices:
-            result.append([float(p.x + self.pCen.x), float(p.y + self.pCen.y)])
+        for p in self.polygon.exterior.coords:
+            result.append([float(p[0] + self.pCen.x), float(p[1] + self.pCen.y)])
         return result
 
     def reconnectAllEdges(self):
-        _compositeLines = list(filter(lambda cl: cl.toBeUsed and not cl.added, self.compositeLines))
-        _unusedLines = list(filter(lambda cl: not cl.toBeUsed and not cl.added, self.compositeLines))
+        _compositeLines = list(filter(lambda _cl: _cl.toBeUsed and not _cl.added, self.compositeLines))
+        _unusedLines = list(filter(lambda _cl: not _cl.toBeUsed and not _cl.added, self.compositeLines))
 
         _prevCL = _compositeLines[-1]
 
         for _CL in _compositeLines:
             if not _CL.isNextTo(_prevCL) and not _CL.added:
                 try:
-                    _p = _CL.toLine().intersection(_prevCL.toLine())
-                    p = _p[0]
+                    p = _CL.intersect(_prevCL)
+                    if _prevCL.p2.distance(p) > _prevCL.p2.distance(_CL.p1) \
+                    or _CL.p1.distance(p) > _CL.p1.distance(_prevCL.p2):
+                        raise Exception
                     _prevCL.p2 = S_Point(p.x, p.y)
                     _CL.p1 = S_Point(p.x, p.y)
                     _CL.previousSegment = _prevCL
@@ -85,7 +88,7 @@ class S_ClosedPolyLine:
                         _CL.toBeUsed = False
                     else:
                         _prevCL = _CL
-                except (IndexError, AttributeError):
+                except (IndexError, AttributeError, Exception):
                     cl = S_CompositeLine(_prevCL.p2, _CL.p1)
                     cl.added = True
                     cl.index = _prevCL.index
@@ -114,18 +117,18 @@ class S_ClosedPolyLine:
 
         _prevDiff = 0
         _i = 0
-        _iPrev = len(self.polygon.vertices)
+        _iPrev = len(self.polygon.exterior.coords)
 
         print(_iPrev)
 
         while (_r := math.fabs((math.fabs(self.polygon.area)  - aOriginal)) / aOriginal) < p_aDiff \
-                and len(self.polygon.vertices) > 3:
+                and len(self.polygon.exterior.coords) > 3:
             try:
-                print(len(self.polygon.vertices))
+                print(len(self.polygon.exterior.coords))
                 self.removeOneSegmentAndReconnect()
                 _prevDiff = _r
 
-                if True:
+                if False:
                     with open(f"Dumps\\{_i}_.json", "w") as j:
                         j.write(self.toJSON())
                         _i += 1
@@ -151,7 +154,7 @@ class S_ClosedPolyLine:
 
     def toJSON(self, p_indent=4, BBoxToOrigo=False):
         result = {'points': []}
-        for point in self.polygon.vertices:
-            result['points'].append([float(point.x + (self.pCen.x if BBoxToOrigo else 0)), float(point.y + (self.pCen.y if BBoxToOrigo else 0))])
+        for point in self.polygon.exterior.coords:
+            result['points'].append([float(point[0] + (self.pCen.x if BBoxToOrigo else 0)), float(point[1] + (self.pCen.y if BBoxToOrigo else 0))])
 
         return json.dumps(result, indent=p_indent)

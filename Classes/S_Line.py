@@ -88,7 +88,10 @@ class S_Line:
         return math.sqrt((self._dx()) ** 2 + (self._dy()) ** 2)
 
     def distToPoint(self, p_point:S_Point) -> float:
-        return (math.fabs((self._dx()) * (self._p1.y-p_point.y) - (self._dy()) * (self._p1.x-p_point.x)))  / self.getLength()
+        try:
+            return (math.fabs((self._dx()) * (self._p1.y-p_point.y) - (self._dy()) * (self._p1.x-p_point.x)))  / self.getLength()
+        except ZeroDivisionError:
+            return math.sqrt((self._p1.x - p_point.x) ** 2 + (self._p1.y - p_point.y) ** 2)
 
     def distToOrigo(self):
         return self.distToPoint(S_Point(0,0))
@@ -129,8 +132,24 @@ class S_Line:
     def getManhattanDist(self, p_other):
         return math.fabs(self.slope() - p_other.slope) // S_Line.EPS_ANG + math.fabs(self.distToOrigo() + p_other.distToOrigo()) // S_Line.EPS
 
-    def projectToOtherLine(self, p_other):
-        l = g.Line(p_other.p1, p_other.p2)
-        self.p1 = S_Point(l.projection(self._p1))
-        self.p2 = S_Point(l.projection(self._p2))
+    # def projectToOtherLine(self, p_other):
+    #     l = g.LineString (p_other.p1, p_other.p2)
+    #     self.p1 = S_Point(l.projection(self._p1))
+    #     self.p2 = S_Point(l.projection(self._p2))
+
+    def intersect(self, p_other):
+        """ returns an S_Point (x, y) tuple or None if there is no intersection """
+
+        d = (p_other.p2.y - p_other.p1.y) * (self.p2.x - self.p1.x) - (p_other.p2.x - p_other.p1.x) * (self.p2.y - self.p1.y)
+        if d:
+            uA = ((p_other.p2.x - p_other.p1.x) * (self.p1.y - p_other.p1.y) - (p_other.p2.y - p_other.p1.y) * (self.p1.x - p_other.p1.x)) / d
+            # uB = ((self.p2.x - self.p1.x) * (self.p1.y - p_other.p1.y) - (self.p2.y - self.p1.y) * (self.p1.x - p_other.p1.x)) / d
+        else:
+            return
+        # if not (0 <= uA <= 1 and 0 <= uB <= 1):
+        #     return
+        x = self.p1.x + uA * (self.p2.x - self.p1.x)
+        y = self.p1.y + uA * (self.p2.y - self.p1.y)
+
+        return S_Point(x, y)
 

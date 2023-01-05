@@ -96,12 +96,15 @@ def f2(p_sPath):
     """Second step:
     Remove short edges by reconnecting the long ones
     """
-    with open(f"Dumps\\{p_sPath}.json", "r") as j:
+    with open(f"Dumps\\{p_sPath}_f1.json", "r") as j:
         _dict = json.load(j)
 
-    areaDiff = _dict['aDiff']
+    with open(f"Dumps\\{p_sPath}.json", "r") as j:
+        __dict = json.load(j)
 
-    _lPoints = [S_Point(p[0], p[1]) for p in _dict["resultPoints"]]
+    areaDiff = __dict['aDiff']
+
+    _lPoints = [S_Point(p[0], p[1]) for p in _dict["points"]]
 
     _closedPolyLine = S_ClosedPolyLine(_lPoints)
 
@@ -131,9 +134,10 @@ def pyPlot(p_sFilePath, p_tag="", *args):
 
 
 if __name__ == "__main__":
-    # f1("1")
-    f2("1")
-    # pyPlot("Dumps\\1_f1.json", "points", "Dumps\\1_f2.json", "points")
+    _N_ = 4
+    # f1(f"{_N_}")
+    f2(f"{_N_}")
+    pyPlot(f"Dumps\\{_N_}_f2.json", "points")
 
     _i = 0
     _l = []
@@ -142,7 +146,8 @@ if __name__ == "__main__":
         _l += [f"Dumps\\{_i}_.json", "points"]
         _i += 1
 
-    print(*_l)
-    pyPlot(*_l)
+    if _l:
+        print(*_l)
+        pyPlot(*_l)
 
 
